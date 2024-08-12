@@ -1,0 +1,27 @@
+# Python-related files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+
+# Environment files
+.env
+
+# Virtual environment
+venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Static and template files
+static/
+templates/
+
+# PDF and other large files
+*.pdf
+
+# Miscellaneous
+*.log
+*.tmp

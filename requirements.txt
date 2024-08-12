@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+jinja2
+pinecone-client
+langchain
+python-dotenv
