@@ -1,22 +1,22 @@
-from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 import pinecone
-import tiktoken
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from fastapi import FastAPI, Request, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import os
 from dotenv import load_dotenv
+from functools import lru_cache
+from transformers import TFAutoModel, AutoTokenizer
+import tensorflow as tf
+
+chat_history = []
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI()
 
-# Initialize Jinja2 templates
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="static/templates")
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -26,92 +26,94 @@ os.environ['PINECONE_API_KEY'] = os.getenv("PINECONE_API_KEY")
 gemini_api_key = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=gemini_api_key)
 
-# Initialize Pinecone and model
+# Initialize Pinecone
 pc = pinecone.Pinecone(api_key=os.environ['PINECONE_API_KEY'])
 index_name = "world-history"
-
-if index_name not in pc.list_indexes().names():
-    pc.create_index(
-        name=index_name,
-        dimension=384,  # Dimension for SentenceTransformer
-        metric='cosine'
-    )
-
 index = pc.Index(index_name)
 
-# Initialize Sentence Transformer model
-model = SentenceTransformer('all-MiniLM-L6-v2')
+# Load the model and tokenizer
+model_name = 'distilbert-base-uncased'
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = TFAutoModel.from_pretrained(model_name)
 
-# Function to get embeddings
-def get_embeddings(texts):
-    return model.encode(texts).tolist()
+VECTOR_DIMENSION = 384
 
-# Load and split the PDF text
-pdf_loader = PyPDFLoader("01. World History. Cultures, States, and Societies to 1500 author Eugene Berger, George L. Israel, Charlotte Miller, Brian Parkinson, Andrew Reeves and Nadejda Williams.pdf")
-pdf_text = pdf_loader.load()
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=2000,
-    chunk_overlap=100,
-    length_function=lambda text: len(tiktoken.get_encoding('p50k_base').encode(text)),
-    separators=["\n\n", "\n", " ", ""]
-)
-chunks = text_splitter.split_text(pdf_text)
-embeddings = get_embeddings(chunks)
-
-# Upsert vectors into Pinecone
-vectors_to_upsert = [(f"id_{i}", embedding, {"text": text}) for i, (embedding, text) in enumerate(zip(embeddings, chunks))]
-index.upsert(vectors=vectors_to_upsert)
-
-# Function to check Pinecone content (for debugging)
-def check_pinecone_content():
-    try:
-        stats = index.describe_index_stats()
-        print(f"Total vectors in index: {stats['total_vector_count']}")
-        sample_ids = [f'id_{i}' for i in range(min(5, stats['total_vector_count']))]
-        fetch_response = index.fetch(ids=sample_ids)
-        for id, vector in fetch_response['vectors'].items():
-            print(f"\nVector ID: {id}")
-            print(f"Metadata: {vector.get('metadata', 'No metadata')}")
-            print(f"Values (first 5): {vector['values'][:5] if vector['values'] else 'No values'}")
-        return "Pinecone index content check completed"
-    except Exception as e:
-        return f"Pinecone index content check failed: {str(e)}"
-
-# Call the function to check Pinecone index
-print(check_pinecone_content())
-
-# Root endpoint
 @app.get("/")
 async def root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# Ask endpoint
+@lru_cache(maxsize=1024)
+def get_cached_embedding(question):
+    # Tokenize the input question
+    inputs = tokenizer(question, return_tensors="tf", padding=True, truncation=True, max_length=512)
+    
+    # Get the model's output (hidden states)
+    outputs = model(inputs)
+    
+    # Compute the mean of the hidden states to get the embeddings
+    embeddings = tf.reduce_mean(outputs.last_hidden_state, axis=1)
+    
+    # Reduce the dimension to match the Pinecone index
+    embeddings = tf.keras.layers.Dense(VECTOR_DIMENSION)(embeddings)
+    
+    # Return the embeddings as a list
+    return embeddings.numpy().tolist()[0]
+
 @app.post("/ask")
 async def ask(request: Request, question: str = Form(...)):
+    global chat_history
+    
     try:
-        query_embedding = get_embeddings([question])[0]
-        print(f"Query Embedding: {query_embedding}")
+        # Handle common greetings and simple queries
+        greetings = ["hi", "hello", "hey", "alright", "thanks", "bye"]
+        if question.lower() in greetings:
+            responses = {
+                "hi": "Hello! How can I assist you with world history today?",
+                "hello": "Hi there! What would you like to know about world history?",
+                "hey": "Hey! Feel free to ask me anything about world history.",
+                "alright": "Got it! If you have any questions about world history, just let me know.",
+                "thanks": "You're welcome! If you have more questions, I'm here to help.",
+                "bye": "Goodbye! Feel free to return if you have more questions."
+            }
+            response_text = responses.get(question.lower(), "I'm here if you need any help with world history.")
+            # Update chat history
+            chat_history.append({"user": question, "bot": response_text})
+            return templates.TemplateResponse("index.html", {"request": request, "answer": response_text, "history": chat_history})
 
-        top_matches = index.query(vector=query_embedding, top_k=10, include_metadata=True)
-        print(f"Top Matches: {top_matches}")
+        # Process the question normally
+        query_embedding = get_cached_embedding(question)
+        top_matches = index.query(vector=query_embedding, top_k=3, include_metadata=True)
 
         if not top_matches or not top_matches.get('matches'):
-            return templates.TemplateResponse("index.html", {"request": request, "answer": "Sorry, I couldn't find an answer."})
+            response_text = "Sorry, I couldn't find an answer."
+        else:
+            contexts = [item['metadata']['text'] for item in top_matches['matches'][:3]]
+            combined_contexts = "\n\n-------\n\n".join(contexts)
 
-        contexts = [item['metadata']['text'] for item in top_matches['matches']]
-        print(f"Contexts: {contexts}")
+            # Shorten the combined contexts if needed
+            max_length = 2000  # Adjusted for brevity
+            if len(combined_contexts) > max_length:
+                combined_contexts = combined_contexts[:max_length] + "..."
 
-        augmented_query = "<CONTEXT>\n" + "\n\n-------\n\n".join(contexts[:10]) + "\n-------\n</CONTEXT>\n\n\n\nMY QUESTION:\n" + question
-        print(f"Augmented Query: {augmented_query}")
+            # Use clear instructions to avoid confusion
+            augmented_query = f"<CONTEXT>\n{combined_contexts}\n-------\n</CONTEXT>\n\n\n\nMY QUESTION:\n{question}"
 
-        response = genai.generate_text(
-            prompt=f"You are an expert on the book titled 'World History'. Answer questions based only on the provided context from this book.\n\n{augmented_query}",
-            safety_settings=[{"category": "HARM_CATEGORY_DEROGATORY", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}],
-            generation_config={"temperature": 0.7, "max_output_tokens": 150}
-        )
-        print(f"Generated Response: {response}")
+            response = genai.generate_text(
+                prompt=f"You are an expert on the book 'World History: Cultures, States, and Societies to 1500.' Answer the following question in a brief and conversational manner.\n\n{augmented_query}",
+                temperature=0.5,
+                safety_settings=[{"category": "HARM_CATEGORY_DEROGATORY", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}]
+            )
 
-        return templates.TemplateResponse("index.html", {"request": request, "answer": response.text})
+            # Debug log response
+            print("Generated Response:", response)
+
+            generated_text = response.result or response.generated_text or response.choices[0].text
+            response_text = generated_text.strip()  # Ensure no extra whitespace
+
+        # Update chat history
+        chat_history.append({"user": question, "bot": response_text})
+
+        return templates.TemplateResponse("index.html", {"request": request, "answer": response_text, "history": chat_history})
     except Exception as e:
         return templates.TemplateResponse("index.html", {"request": request, "answer": f"An error occurred: {str(e)}"})
 
