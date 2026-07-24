@@ -35,11 +35,28 @@ html, body {
   color: var(--ink);
 }
 
+/* Paper texture: fine grain dots + faint vertical "chain lines" (a laid-paper
+   trait) + a soft vignette toward the edges. All CSS/SVG, no image assets --
+   subtle enough not to affect text contrast, but enough to stop the page
+   reading as flat, sterile white. */
 body {
   font-family: var(--font-body);
   font-size: 17px;
   line-height: 1.6;
   min-height: 100vh;
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(28, 43, 30, 0) 55%, rgba(28, 43, 30, 0.035) 100%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(28, 43, 30, 0.025) 0,
+      rgba(28, 43, 30, 0.025) 1px,
+      transparent 1px,
+      transparent 64px
+    ),
+    radial-gradient(circle at 1px 1px, rgba(28, 43, 30, 0.07) 1px, transparent 0);
+  background-attachment: fixed, fixed, fixed;
+  background-size: 100% 100%, 64px 100%, 4px 4px;
 }
 
 .visually-hidden {
@@ -59,6 +76,19 @@ body {
   flex-direction: column;
 }
 
+@media (min-width: 820px) {
+  .page {
+    background: var(--paper);
+    min-height: auto;
+    margin: 1.5rem auto 2.5rem;
+    padding: 2.5rem 3rem 2.25rem;
+    border-radius: 10px;
+    box-shadow:
+      0 1px 3px rgba(28, 43, 30, 0.07),
+      0 16px 40px rgba(28, 43, 30, 0.07);
+  }
+}
+
 /* --------------------------------------------------------------------------
    Masthead
    -------------------------------------------------------------------------- */
@@ -66,8 +96,19 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding-bottom: 1.25rem;
-  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
+  position: relative;
+}
+
+.masthead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--paper-line) 15%, var(--paper-line) 85%, transparent);
 }
 
 .mark {
@@ -84,15 +125,17 @@ body {
   justify-content: center;
   border-radius: var(--radius);
   border: 1px solid var(--green-deep);
+  box-shadow: 0 3px 8px rgba(30, 86, 49, 0.28);
 }
 
 .masthead-text h1 {
-  font-family: var(--font-display);
-  font-size: 2rem;
-  font-weight: 400;
-  letter-spacing: 0.02em;
+  font-family: 'Cinzel', var(--font-display), Georgia, serif;
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   margin: 0;
-  color: var(--ink);
+  color: var(--green-deep);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .tagline {
@@ -107,75 +150,104 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   Hero — auto-advancing highlight slideshow.
-   Text-only crossfade (no stock imagery): keeps the repo license-clean and
-   reads as calmer motion than photos cycling, per "no noise" brief.
+   Hero — auto-advancing era carousel.
+   Markup: .hero > .hero-viewport > .hero-track > .hero-panel (x6), plus a
+   sibling .hero-dots row. Only the active .hero-panel is visible; JS toggles
+   .is-active and the crossfade below handles the transition. Text-only (no
+   stock imagery) keeps the repo license-clean and reads as calmer motion.
    -------------------------------------------------------------------------- */
 .hero {
   margin-bottom: 1.75rem;
 }
 
-.hero-frame {
+.hero-viewport {
   position: relative;
   background: var(--paper-dim);
   border: 1px solid var(--paper-line);
   border-radius: var(--radius);
-  padding: 1.5rem 1.75rem 1.25rem;
+  padding: 1.9rem 2.15rem 1.65rem;
   overflow: hidden;
+  min-height: 200px;
+  --hero-accent: var(--green);
+  /* Nested frame: outer rule (border, above), a paper-colored gap, then a
+     fine gold-leaf inner rule -- the "illuminated folio" signature. */
+  box-shadow:
+    inset 0 0 0 5px var(--paper),
+    inset 0 0 0 6px rgba(184, 149, 47, 0.55);
 }
 
-/* left accent bar — echoes the green tab motif from the reference board */
-.hero-frame::before {
+/* left accent bar — echoes the green tab motif from the reference board,
+   recolored per era via --hero-accent (set in JS on each slide change) */
+.hero-viewport::before {
   content: "";
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 5px;
-  background: var(--green);
+  background: var(--hero-accent);
+  transition: background 0.25s ease;
 }
 
-.hero-slides {
+.hero-track {
   list-style: none;
   margin: 0;
   padding: 0;
   position: relative;
-  min-height: 118px;
+  min-height: 148px;
 }
 
-.hero-slide {
+/* Outgoing state: fast, no-delay fade+drop so it's fully gone before the
+   incoming slide arrives -- this is what kills the "ghosting" double-
+   exposure look of a slow simultaneous crossfade. */
+.hero-panel {
   position: absolute;
   inset: 0;
   opacity: 0;
+  transform: translateY(6px);
   pointer-events: none;
-  transition: opacity 0.6s ease;
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
-.hero-slide.is-active {
+/* Incoming state: starts a beat after the outgoing one has cleared, and
+   takes a touch longer so it settles in cleanly rather than snapping. */
+.hero-panel.is-active {
   opacity: 1;
+  transform: translateY(0);
   pointer-events: auto;
+  transition: opacity 0.3s ease 0.08s, transform 0.3s ease 0.08s;
 }
 
-.hero-tab {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.hero-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 1.15rem;
   color: var(--paper);
-  background: var(--green-deep);
-  padding: 0.25rem 0.6rem;
+  background: var(--hero-accent);
   border-radius: 999px;
   margin-bottom: 0.65rem;
+  transition: background 0.25s ease;
 }
 
-.hero-slide h2 {
+.hero-panel h2 {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 400;
-  margin: 0 0 0.4rem;
+  margin: 0 0 0.3rem;
   color: var(--ink);
 }
 
-.hero-slide p {
+.hero-range {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  color: var(--hero-accent);
+  transition: color 0.25s ease;
+}
+
+.hero-teaser {
   margin: 0;
   color: var(--ink-dim);
   font-size: 0.95rem;
@@ -196,10 +268,13 @@ body {
   background: var(--paper-line);
   cursor: pointer;
   padding: 0;
+  transition: background 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
 }
 
 .hero-dot.is-active {
-  background: var(--green);
+  background: var(--hero-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--hero-accent) 18%, transparent);
+  transform: scale(1.05);
 }
 
 .hero-dot:focus-visible {
@@ -208,7 +283,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-slide { transition: none; }
+  .hero-panel { transition: none; }
 }
 
 /* --------------------------------------------------------------------------
@@ -217,6 +292,10 @@ body {
 .reading-room {
   flex: 1;
   overflow-y: auto;
+  background: linear-gradient(180deg, rgba(229, 240, 222, 0.4) 0%, rgba(229, 240, 222, 0.15) 100%);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  margin: 0 -0.75rem;
 }
 
 .transcript {
@@ -276,11 +355,12 @@ body {
    on the first letter of the first paragraph only. */
 .entry--bot .bubble {
   display: block;
-  background: var(--paper);
+  background: linear-gradient(155deg, var(--green-pale) 0%, var(--paper) 70%);
   border: 1px solid var(--paper-line);
   border-left: 3px solid var(--green);
   border-radius: var(--radius);
   padding: 1rem 1.15rem;
+  box-shadow: 0 2px 8px rgba(30, 86, 49, 0.06);
 }
 
 .entry--bot .bubble p {
@@ -349,7 +429,17 @@ body {
   gap: 0.6rem;
   margin-top: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--paper-line);
+  position: relative;
+}
+
+.ask-form::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--paper-line) 15%, var(--paper-line) 85%, transparent);
 }
 
 #question {
@@ -361,6 +451,7 @@ body {
   border: 1px solid var(--paper-line);
   border-radius: var(--radius);
   padding: 0.7rem 0.9rem;
+  box-shadow: inset 0 1px 2px rgba(28, 43, 30, 0.06);
 }
 
 #question::placeholder {
@@ -384,10 +475,19 @@ body {
   border-radius: var(--radius);
   padding: 0.7rem 1.4rem;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-#submit-btn:hover { background: var(--green-bright); }
+#submit-btn:hover {
+  background: var(--green-bright);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(30, 86, 49, 0.25);
+}
+
+#submit-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
 
 #submit-btn:disabled {
   background: var(--paper-line);
@@ -409,10 +509,10 @@ body {
    -------------------------------------------------------------------------- */
 @media (max-width: 480px) {
   .page { padding: 1.5rem 1rem; }
-  .masthead-text h1 { font-size: 1.5rem; }
+  .masthead-text h1 { font-size: 1.4rem; letter-spacing: 0.02em; }
   .mark { width: 2.6rem; height: 2.6rem; min-width: 2.6rem; font-size: 2.4rem; }
-  .hero-frame { padding: 1.25rem 1.25rem 1rem; }
-  .hero-slide h2 { font-size: 1.25rem; }
+  .hero-viewport { padding: 1.25rem 1.25rem 1rem; min-height: 190px; }
+  .hero-panel h2 { font-size: 1.25rem; }
   .entry { max-width: 100%; }
   .ask-form { flex-direction: column; }
   #submit-btn { width: 100%; }
