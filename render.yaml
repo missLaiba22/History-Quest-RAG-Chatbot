@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: world-history-chatbot
+    env: python
+    plan: starter          # free tier often runs out of RAM once sentence-transformers loads its model
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PINECONE_API_KEY
+        sync: false         # set manually in the Render dashboard — never commit real keys
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
