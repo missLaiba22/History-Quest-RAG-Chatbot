@@ -92,7 +92,10 @@ async def ask(payload: QuestionModel):
                 contents=(
                     "You are an expert on the book 'World History: Cultures, States, "
                     "and Societies to 1500.' Answer the following question in a brief "
-                    f"and conversational manner.\n\n{augmented_query}"
+                    "and conversational manner, using plain flowing prose only -- do "
+                    "not use Markdown, asterisks, bullet points, or bold formatting, "
+                    "since the answer is rendered as plain text.\n\n"
+                    f"{augmented_query}"
                 ),
                 config=types.GenerateContentConfig(temperature=0.5),
             )

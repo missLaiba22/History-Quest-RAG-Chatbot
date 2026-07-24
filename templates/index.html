@@ -21,6 +21,59 @@
       </div>
     </header>
 
+    <!-- Hero: rotating era panels. Purely a visual/discovery aid -- clicking a
+         panel fills the question input with a suggested prompt but never
+         auto-submits, so the user stays in control of when a request fires. -->
+    <section class="hero" aria-roledescription="carousel" aria-label="Eras covered in the archive">
+      <div class="hero-viewport">
+        <ul class="hero-track" id="hero-track">
+          <li class="hero-panel" data-era="rome"
+              data-question="What caused the fall of the Western Roman Empire?">
+            <span class="hero-glyph" aria-hidden="true">❧</span>
+            <h2>Rome</h2>
+            <p class="hero-range">27 BCE – 476 CE</p>
+            <p class="hero-teaser">From republic to empire, and the long fall of the West.</p>
+          </li>
+          <li class="hero-panel" data-era="silk-road"
+              data-question="How did the Silk Road shape trade between East and West?">
+            <span class="hero-glyph" aria-hidden="true">✺</span>
+            <h2>The Silk Road</h2>
+            <p class="hero-range">c. 130 BCE – 1450s</p>
+            <p class="hero-teaser">Trade networks that carried goods, faiths, and ideas across continents.</p>
+          </li>
+          <li class="hero-panel" data-era="feudal-japan"
+              data-question="How did the samurai class shape feudal Japan?">
+            <span class="hero-glyph" aria-hidden="true">扇</span>
+            <h2>Feudal Japan</h2>
+            <p class="hero-range">1185 – 1500s</p>
+            <p class="hero-teaser">Shoguns, samurai, and a warrior code that outlasted its era.</p>
+          </li>
+          <li class="hero-panel" data-era="islamic-golden-age"
+              data-question="What made the Islamic Golden Age a center of scholarship?">
+            <span class="hero-glyph" aria-hidden="true">✦</span>
+            <h2>The Islamic Golden Age</h2>
+            <p class="hero-range">8th – 13th century</p>
+            <p class="hero-teaser">Baghdad's House of Wisdom and a flourishing of science and philosophy.</p>
+          </li>
+          <li class="hero-panel" data-era="mesoamerica"
+              data-question="How did the Aztec Empire rise to power in Mesoamerica?">
+            <span class="hero-glyph" aria-hidden="true">☀</span>
+            <h2>Mesoamerica</h2>
+            <p class="hero-range">c. 300 – 1500 CE</p>
+            <p class="hero-teaser">The Maya and Aztec worlds, built on calendars, cities, and conquest.</p>
+          </li>
+          <li class="hero-panel" data-era="medieval-europe"
+              data-question="How did the feudal system work in medieval Europe?">
+            <span class="hero-glyph" aria-hidden="true">⚜</span>
+            <h2>Medieval Europe</h2>
+            <p class="hero-range">800 – 1400</p>
+            <p class="hero-teaser">Lords, vassals, and the manor economy that structured daily life.</p>
+          </li>
+        </ul>
+      </div>
+      <div class="hero-dots" id="hero-dots" role="tablist" aria-label="Choose an era to preview"></div>
+    </section>
+
     <main class="reading-room">
       <ol id="transcript" class="transcript" aria-live="polite" aria-label="Conversation">
         <li class="entry entry--system">
@@ -47,6 +100,7 @@
 
   </div>
 
+  <script src="/static/js/hero.js"></script>
   <script src="/static/js/app.js"></script>
 </body>
 </html>
