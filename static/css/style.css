@@ -1,0 +1,304 @@
+/* ==========================================================================
+   Scriptorium — design tokens
+   Palette drawn from illuminated manuscripts: iron-gall ink, gold leaf,
+   lapis lazuli pigment, parchment vellum. Deliberately not the generic
+   cream+terracotta or dark+neon AI-chat defaults.
+   ========================================================================== */
+:root {
+  --ink:          #1A1512;   /* page background: iron-gall ink */
+  --ink-raised:   #241D18;   /* panels, transcript rows */
+  --ink-line:     #3A2F27;   /* hairline borders */
+  --parchment:    #EDE3D0;   /* primary text */
+  --parchment-dim:#B9AC94;   /* secondary text */
+  --gold:         #C9A227;   /* illuminated gold leaf — signature accent, used sparingly */
+  --gold-soft:    #7A631E;   /* gold at lower contrast, for hover/borders */
+  --lapis:        #3B5A80;   /* lapis lazuli pigment — user's own questions */
+  --lapis-soft:   #2A415C;
+  --rubric:       #8C2F2F;   /* rubric red ink — errors only */
+
+  --font-display: 'IM Fell English', Georgia, serif;
+  --font-body:    'Source Serif 4', Georgia, serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, Menlo, monospace;
+
+  --radius: 3px;
+  --max-w: 720px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+  color: var(--parchment);
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
+  min-height: 100vh;
+  /* Faint vertical fiber texture, evoking laid paper, without a stock photo */
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(237, 227, 208, 0.015) 0px,
+      rgba(237, 227, 208, 0.015) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.page {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 2rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --------------------------------------------------------------------------
+   Masthead — the signature element: an illuminated drop-cap wordmark,
+   standing in for a logo/avatar rather than a generic bot icon.
+   -------------------------------------------------------------------------- */
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--ink-line);
+  margin-bottom: 1.5rem;
+}
+
+.mark {
+  font-family: var(--font-display);
+  font-size: 3.25rem;
+  line-height: 1;
+  color: var(--ink);
+  background: linear-gradient(160deg, var(--gold) 0%, var(--gold-soft) 100%);
+  width: 3.25rem;
+  height: 3.25rem;
+  min-width: 3.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  border: 1px solid var(--gold);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.4) inset;
+}
+
+.masthead-text h1 {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin: 0;
+  color: var(--parchment);
+}
+
+.tagline {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--parchment-dim);
+}
+
+.tagline cite {
+  font-style: italic;
+  color: var(--gold);
+}
+
+/* --------------------------------------------------------------------------
+   Transcript
+   -------------------------------------------------------------------------- */
+.reading-room {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.transcript {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.entry {
+  max-width: 92%;
+}
+
+.entry--system p {
+  color: var(--parchment-dim);
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+/* User questions: styled as marginalia — a reader's own annotation,
+   set apart from the main body text rather than a generic chat bubble. */
+.entry--user {
+  align-self: flex-end;
+  text-align: right;
+}
+
+.entry--user .bubble {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--lapis-soft);
+  background: transparent;
+  border-right: 2px solid var(--lapis);
+  padding-right: 0.75rem;
+}
+
+.entry--user .bubble::before {
+  content: "you asked — ";
+  color: var(--parchment-dim);
+}
+
+/* AI answers: the main manuscript text, with a real illuminated drop-cap
+   on the first letter — the recurring signature, not a one-off hero. */
+.entry--bot .bubble {
+  display: block;
+  background: var(--ink-raised);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+}
+
+.entry--bot .bubble p {
+  margin: 0;
+}
+
+.entry--bot .bubble p::first-letter {
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  color: var(--gold);
+  padding-right: 0.15rem;
+  line-height: 0.7;
+}
+
+.entry--error .bubble {
+  display: block;
+  background: var(--ink-raised);
+  border: 1px solid var(--rubric);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  color: #D9A0A0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+}
+
+/* "Consulting the archive…" loading state */
+.entry--pending .bubble {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--ink-raised);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  color: var(--parchment-dim);
+  font-style: italic;
+}
+
+.quill {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--gold);
+  border-radius: 50%;
+  animation: quill-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes quill-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quill { animation: none; opacity: 0.8; }
+}
+
+/* --------------------------------------------------------------------------
+   Input
+   -------------------------------------------------------------------------- */
+.ask-form {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--ink-line);
+}
+
+#question {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--parchment);
+  background: var(--ink-raised);
+  border: 1px solid var(--ink-line);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+}
+
+#question::placeholder {
+  color: var(--parchment-dim);
+  opacity: 0.7;
+}
+
+#question:focus-visible,
+#submit-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+#submit-btn {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--ink);
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 0.7rem 1.4rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+#submit-btn:hover { background: #DBB33A; }
+
+#submit-btn:disabled {
+  background: var(--gold-soft);
+  border-color: var(--gold-soft);
+  color: var(--ink-raised);
+  cursor: not-allowed;
+}
+
+.hint {
+  margin: 0.6rem 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--parchment-dim);
+  opacity: 0.7;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 480px) {
+  .page { padding: 1.5rem 1rem; }
+  .masthead-text h1 { font-size: 1.5rem; }
+  .mark { width: 2.6rem; height: 2.6rem; min-width: 2.6rem; font-size: 2.4rem; }
+  .entry { max-width: 100%; }
+  .ask-form { flex-direction: column; }
+  #submit-btn { width: 100%; }
+}

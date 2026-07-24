@@ -1,68 +1,59 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import pinecone
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 import os
 from dotenv import load_dotenv
-from functools import lru_cache
-from transformers import TFAutoModel, AutoTokenizer
-import tensorflow as tf
 
-chat_history = []
+from embeddings import embed_query
+from models import QuestionModel
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI()
 
-templates = Jinja2Templates(directory="static/templates")
+# Templates live in their own top-level folder, kept separate from static/.
+# (Previously templates/ sat inside static/, which is mounted as a public
+# static route below -- that meant the raw, unrendered HTML was directly
+# downloadable at /static/templates/index.html. Keeping them apart is the
+# standard FastAPI layout and avoids that.)
+templates = Jinja2Templates(directory="templates")
 
-# Serve static files
+# Serve static assets (CSS/JS) only.
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Set the environment variables and API keys
-os.environ['PINECONE_API_KEY'] = os.getenv("PINECONE_API_KEY")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 gemini_api_key = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=gemini_api_key)
+if not PINECONE_API_KEY or not gemini_api_key:
+    raise RuntimeError(
+        "PINECONE_API_KEY and GEMINI_API_KEY must both be set. "
+        "Copy .env.example to .env and fill in real values."
+    )
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+gemini_client = genai.Client(api_key=gemini_api_key)
 
 # Initialize Pinecone
-pc = pinecone.Pinecone(api_key=os.environ['PINECONE_API_KEY'])
+pc = pinecone.Pinecone(api_key=PINECONE_API_KEY)
 index_name = "world-history"
 index = pc.Index(index_name)
 
-# Load the model and tokenizer
-model_name = 'distilbert-base-uncased'
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = TFAutoModel.from_pretrained(model_name)
-
-VECTOR_DIMENSION = 384
-
 @app.get("/")
 async def root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-@lru_cache(maxsize=1024)
-def get_cached_embedding(question):
-    # Tokenize the input question
-    inputs = tokenizer(question, return_tensors="tf", padding=True, truncation=True, max_length=512)
-    
-    # Get the model's output (hidden states)
-    outputs = model(inputs)
-    
-    # Compute the mean of the hidden states to get the embeddings
-    embeddings = tf.reduce_mean(outputs.last_hidden_state, axis=1)
-    
-    # Reduce the dimension to match the Pinecone index
-    embeddings = tf.keras.layers.Dense(VECTOR_DIMENSION)(embeddings)
-    
-    # Return the embeddings as a list
-    return embeddings.numpy().tolist()[0]
+    return templates.TemplateResponse(request, "index.html", {})
 
 @app.post("/ask")
-async def ask(request: Request, question: str = Form(...)):
-    global chat_history
-    
+async def ask(payload: QuestionModel):
+    question = payload.question.strip()
+
+    if not question:
+        return JSONResponse(status_code=400, content={"error": "Ask something first."})
+
     try:
         # Handle common greetings and simple queries
         greetings = ["hi", "hello", "hey", "alright", "thanks", "bye"]
@@ -76,12 +67,10 @@ async def ask(request: Request, question: str = Form(...)):
                 "bye": "Goodbye! Feel free to return if you have more questions."
             }
             response_text = responses.get(question.lower(), "I'm here if you need any help with world history.")
-            # Update chat history
-            chat_history.append({"user": question, "bot": response_text})
-            return templates.TemplateResponse("index.html", {"request": request, "answer": response_text, "history": chat_history})
+            return JSONResponse(content={"answer": response_text})
 
         # Process the question normally
-        query_embedding = get_cached_embedding(question)
+        query_embedding = list(embed_query(question))
         top_matches = index.query(vector=query_embedding, top_k=3, include_metadata=True)
 
         if not top_matches or not top_matches.get('matches'):
@@ -98,24 +87,21 @@ async def ask(request: Request, question: str = Form(...)):
             # Use clear instructions to avoid confusion
             augmented_query = f"<CONTEXT>\n{combined_contexts}\n-------\n</CONTEXT>\n\n\n\nMY QUESTION:\n{question}"
 
-            response = genai.generate_text(
-                prompt=f"You are an expert on the book 'World History: Cultures, States, and Societies to 1500.' Answer the following question in a brief and conversational manner.\n\n{augmented_query}",
-                temperature=0.5,
-                safety_settings=[{"category": "HARM_CATEGORY_DEROGATORY", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}]
+            response = gemini_client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=(
+                    "You are an expert on the book 'World History: Cultures, States, "
+                    "and Societies to 1500.' Answer the following question in a brief "
+                    f"and conversational manner.\n\n{augmented_query}"
+                ),
+                config=types.GenerateContentConfig(temperature=0.5),
             )
 
-            # Debug log response
-            print("Generated Response:", response)
+            response_text = response.text.strip()
 
-            generated_text = response.result or response.generated_text or response.choices[0].text
-            response_text = generated_text.strip()  # Ensure no extra whitespace
-
-        # Update chat history
-        chat_history.append({"user": question, "bot": response_text})
-
-        return templates.TemplateResponse("index.html", {"request": request, "answer": response_text, "history": chat_history})
+        return JSONResponse(content={"answer": response_text})
     except Exception as e:
-        return templates.TemplateResponse("index.html", {"request": request, "answer": f"An error occurred: {str(e)}"})
+        return JSONResponse(status_code=500, content={"error": f"An error occurred: {str(e)}"})
 
 if __name__ == "__main__":
     import uvicorn

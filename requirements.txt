@@ -1,6 +1,23 @@
-fastapi
-uvicorn
-jinja2
-pinecone-client
-langchain
-python-dotenv
+# --- Web framework ---
+fastapi==0.139.2
+uvicorn==0.51.0
+jinja2==3.1.6
+python-multipart==0.0.32   # required by FastAPI's Form(...) parsing (was missing; /ask would 500 without it)
+
+# --- Config ---
+python-dotenv==1.2.2
+
+# --- Vector database ---
+pinecone==9.1.0            # renamed from pinecone-client; this is the >=3.0 client the code already assumes
+
+# --- Document loading / chunking (RAG ingestion) ---
+langchain-community==0.4.2 # provides PyPDFLoader
+langchain-text-splitters==1.1.2  # provides RecursiveCharacterTextSplitter (moved out of `langchain` core)
+pypdf==6.14.2              # actual PDF parser backing PyPDFLoader; was missing from old requirements
+tiktoken==0.13.0           # tokenizer used to length-check chunks
+
+# --- Embeddings ---
+sentence-transformers==5.6.1  # replaces the broken TensorFlow/DistilBERT + random Dense layer
+
+# --- LLM ---
+google-genai==2.14.0        # current SDK; google-generativeai is fully deprecated upstream

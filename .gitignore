@@ -1,27 +1,43 @@
 # Python-related files
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.db
-*.sqlite3
+*.py[cod]
+*$py.class
 
-# Environment files
-.env
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
 
 # Virtual environment
 venv/
+.venv/
+env/
+
+# Environment variables (never commit secrets)
+.env
+.env.*
+!.env.example
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-# Static and template files
-static/
-templates/
+# Databases (if used for local dev/testing)
+*.db
+*.sqlite3
 
-# PDF and other large files
+# Large source PDFs (source data, not app code)
 *.pdf
 
-# Miscellaneous
+# OS / editor cruft
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
 *.log
 *.tmp
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
